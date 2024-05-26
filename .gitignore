@@ -1,0 +1,7 @@
+ml-100k/*
+dags/__pycache__/*
+ml-100k.zip
+test.py
+testcopy.py
+airflow/*
+logs/*
