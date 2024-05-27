@@ -116,7 +116,7 @@ def top_genres():
 
 
 with DAG(
-    dag_id="pipeline2",
+    dag_id="movielensexp",
     start_date=pendulum.datetime(2024, 5, 25, tz="UTC"),
     schedule_interval= '0 20 * * Mon-Fri',
     concurrency = 1,

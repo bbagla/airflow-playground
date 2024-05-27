@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-mkdir logs plugins
+mkdir -p logs plugins
 
 echo "installing virtualenv"
-pip3 install venv
-virtualenv env
+pip3 install virtualenv
+virtualenv venv
 
 echo "activating virtualenv"
 . venv/bin/activate
