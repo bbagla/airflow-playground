@@ -113,6 +113,51 @@ def top_genres():
     conn = engine.connect() 
     top_genres.to_sql('topgenres', con=conn, index=True, if_exists='replace')
 
+def similar_movies():
+    import pandas as pd
+    import numpy as np
+    from scipy.spatial.distance import pdist, squareform
+    from sqlalchemy import create_engine
+
+    ratings = pd.read_csv('ml-100k/u.data', sep='\t', names=['user_id', 'movie_id', 'rating', 'unix_timestamp'], encoding='latin-1')
+    movies = pd.read_csv('ml-100k/u.item', sep='|', names=['movie_id', 'title', 'release_date', 'video_release_date', 'imdb_url'], usecols=range(5), encoding='latin-1')
+
+    ratings  = pd.merge(movies, ratings, on="movie_id")
+    # Pivot the ratings dataframe to get a matrix of users and movies
+    ratings_matrix = ratings.pivot_table(index='user_id', columns='title', values='rating')
+
+    #  # Fill NA values with 0
+    ratings_matrix.fillna(0, inplace=True)
+
+    # Calculate the similarity between movies based on user ratings
+    similarity_matrix = 1 - squareform(pdist(ratings_matrix.T, 'cosine'))
+    print(similarity_matrix)
+
+    # Convert the similarity matrix to a dataframe
+    similarity_df = pd.DataFrame(similarity_matrix, index=ratings_matrix.columns, columns=ratings_matrix.columns)
+
+    user_movie_matrix = ratings_matrix.applymap(lambda x: 1 if x > 0 else 0)
+    # Calculate the co-occurrence matrix by multiplying the matrix by its transpose
+    co_occurrence_matrix = user_movie_matrix.T.dot(user_movie_matrix)
+    # Substituting diagonal values to 0
+    np.fill_diagonal(co_occurrence_matrix.values, 0)
+
+
+    def get_similar_movies(movie_id, similarity_threshold=0.50, co_occurrence_threshold=50):
+        co_occurrence= co_occurrence_matrix[movie_id]
+        similar_movies = similarity_df[movie_id]
+        similar_movies = pd.DataFrame(similar_movies[similar_movies >= similarity_threshold])
+        similar_movies['strength'] = co_occurrence
+        similar_movies = similar_movies[co_occurrence >= co_occurrence_threshold]
+        similar_movies.columns = ['Similarity', 'Strength']
+        return similar_movies.sort_values(by=similar_movies.columns[0], ascending=False).head(10)
+
+    similar_movies = get_similar_movies('Usual Suspects, The (1995)')
+
+    # Push to db
+    engine = create_engine('postgresql://airflow:airflow@postgres:5432/datastore')
+    conn = engine.connect() 
+    similar_movies.to_sql('similarmovies', con=conn, index=True, if_exists='replace')
 
 
 with DAG(
@@ -152,6 +197,13 @@ with DAG(
         on_failure_callback=MyNotifier(message="Failure!")  
     )
 
+    task5 = PythonOperator(
+        task_id = "similar_movies",
+        python_callable=similar_movies,
+        on_success_callback=MyNotifier(message="Success!"),
+        on_failure_callback=MyNotifier(message="Failure!")  
+    )
+
     # Adding external dependency task on web_scrapper dag
     check_task = ExternalTaskSensor(
         task_id='check_task',
@@ -163,4 +215,4 @@ with DAG(
         timeout = datetime.timedelta(seconds=60),
         deferrable=False
     )
-    check_task >> task1 >> [task2,task3, task4]
+    check_task >> task1 >> [task2,task3, task4, task5]
