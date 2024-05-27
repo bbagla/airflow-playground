@@ -4,6 +4,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 import psycopg2
+from helpers.MyNotifier import MyNotifier
 
 def scrap_finshots():
     import requests
@@ -101,17 +102,23 @@ with DAG(
     dag_id="web_scrapper",
     start_date=pendulum.datetime(2024, 5, 25, tz="UTC"),
     schedule_interval= '0 19 * * Mon-Fri',
-    concurrency = 1
+    concurrency = 1,
+    on_success_callback=MyNotifier(message="Success!"),
+    on_failure_callback=MyNotifier(message="Failure!")
 ) as dag:
     
     task1 = PythonOperator(
         task_id = "creatdb",
-        python_callable=create_db
+        python_callable=create_db,
+        on_success_callback=MyNotifier(message="Success!"),
+        on_failure_callback=MyNotifier(message="Failure!")
     )
 
     task2= PythonOperator(
         task_id = "finshots",
-        python_callable=scrap_finshots
+        python_callable=scrap_finshots,
+        on_success_callback=MyNotifier(message="Success!"),
+        on_failure_callback=MyNotifier(message="Failure!")
     )
     
     task1 >> task2

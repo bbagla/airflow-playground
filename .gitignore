@@ -5,3 +5,4 @@ test.py
 testcopy.py
 airflow/*
 logs/*
+dags/helpers/__pycache__/*

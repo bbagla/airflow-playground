@@ -3,7 +3,7 @@ import datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.sensors.external_task import ExternalTaskSensor
-
+from helpers.MyNotifier import MyNotifier
 
 def download_zip():
     import urllib.request
@@ -119,27 +119,37 @@ with DAG(
     dag_id="pipeline2",
     start_date=pendulum.datetime(2024, 5, 25, tz="UTC"),
     schedule_interval= '0 20 * * Mon-Fri',
-    concurrency = 1
+    concurrency = 1,
+    on_success_callback=MyNotifier(message="Success!"),
+    on_failure_callback=MyNotifier(message="Failure!")
 ) as dag:
     
     task1 = PythonOperator(
         task_id = "download_zip",
-        python_callable=download_zip
+        python_callable=download_zip,
+        on_success_callback=MyNotifier(message="Success!"),
+        on_failure_callback=MyNotifier(message="Failure!")
     )
 
     task2= PythonOperator(
         task_id = "calculate_mean",
-        python_callable=calculate_mean
+        python_callable=calculate_mean,
+        on_success_callback=MyNotifier(message="Success!"),
+        on_failure_callback=MyNotifier(message="Failure!")
     )
 
     task3 = PythonOperator(
         task_id = "top_rated_movies",
-        python_callable=top_rated
+        python_callable=top_rated,
+        on_success_callback=MyNotifier(message="Success!"),
+        on_failure_callback=MyNotifier(message="Failure!")
     )
 
     task4 = PythonOperator(
         task_id = "top_genres",
-        python_callable=top_genres
+        python_callable=top_genres,
+        on_success_callback=MyNotifier(message="Success!"),
+        on_failure_callback=MyNotifier(message="Failure!")  
     )
 
     # Adding external dependency task on web_scrapper dag
